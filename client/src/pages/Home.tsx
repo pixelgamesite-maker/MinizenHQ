@@ -17,7 +17,7 @@ const TASKS = [
   },
 ];
 
-const STATUS_MAP: Record<<ApplicationStatus, { label: string; color: string }> = {
+const STATUS_MAP: Record<ApplicationStatus, { label: string; color: string }> = {
   approved:  { label: '✓ Whitelisted',  color: '#111' },
   pending:   { label: '◌ Under Review', color: '#555' },
   rejected:  { label: '✕ Not Selected', color: '#888' },
@@ -82,6 +82,94 @@ function Header() {
     <header style={{ width: '100%', padding: '1.25rem', display: 'flex', justifyContent: 'center' }}>
       <img src={LOGO_URL} alt="Minizen HQ" style={{ height: 40, display: 'block' }} />
     </header>
+  );
+}
+
+/* ── Status Checker (fixed) ────────────────────────────────────── */
+function StatusChecker() {
+  const [wallet, setWallet] = useState('');
+  const [status, setStatus] = useState<ApplicationStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  const check = async () => {
+    if (!wallet.trim()) return;
+    setLoading(true);
+    setErr('');
+    setStatus(null);
+
+    try {
+      // If your API is ready, this calls it. If not, falls through to mock.
+      const result = await checkStatus(wallet.trim());
+      setStatus(result);
+    } catch (e) {
+      // Fallback mock for testing / when API isn't wired yet
+      const mockStatuses: ApplicationStatus[] = ['approved', 'pending', 'rejected', 'not_found'];
+      const hash = wallet.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+      const mockResult = mockStatuses[hash % mockStatuses.length];
+      
+      console.log('[StatusChecker] API failed, using mock fallback:', mockResult);
+      setStatus(mockResult);
+      setErr('API unavailable — showing demo status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section style={{ width: '100%', maxWidth: 640, padding: '4rem 0' }}>
+      <SectionLabel>Check Status</SectionLabel>
+      <div style={{ display: 'flex', gap: 0 }}>
+        <input
+          style={{ ...fieldInput, flex: 1, borderRight: 'none' }}
+          value={wallet}
+          onChange={e => setWallet(e.target.value)}
+          placeholder="0x… wallet address"
+          onKeyDown={e => e.key === 'Enter' && check()}
+        />
+        <button
+          onClick={check}
+          disabled={loading || !wallet.trim()}
+          style={{ ...ghostBtn, borderRadius: 0, whiteSpace: 'nowrap' }}
+        >
+          {loading ? '···' : 'Check →'}
+        </button>
+      </div>
+      <AnimatePresence>
+        {status && (
+          <motion.p
+            initial={{ opacity: 0, x: -6 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0 }}
+            style={{
+              marginTop: 10,
+              fontFamily: "'Space Mono', monospace",
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              color: STATUS_MAP[status].color,
+              letterSpacing: '0.06em',
+            }}
+          >
+            {STATUS_MAP[status].label}
+          </motion.p>
+        )}
+        {err && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              marginTop: 8,
+              fontFamily: "'Space Mono', monospace",
+              fontSize: '0.72rem',
+              color: '#c00',
+            }}
+          >
+            {err}
+          </motion.p>
+        )}
+      </AnimatePresence>
+    </section>
   );
 }
 
@@ -220,9 +308,9 @@ function ConfirmModal({ onYes, onNo }: { onYes: () => void; onNo: () => void }) 
 function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [wallet, setWallet] = useState('');
   const [xLink, setXLink] = useState('');
-  const [done, setDone] = useState<<Set<TaskKey>>(new Set());
-  const [inputs, setInputs] = useState<<Partial<<Record<TaskKey, string>>>({});
-  const [errors, setErrors] = useState<<Record<string, string>>({});
+  const [done, setDone] = useState<Set<TaskKey>>(new Set());
+  const [inputs, setInputs] = useState<Partial<Record<TaskKey, string>>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   const openTask = (task: typeof TASKS[0]) => {
@@ -347,7 +435,7 @@ function SuccessModal({ onClose }: { onClose: () => void }) {
 
 /* ── Main Page ─────────────────────────────────────────────────── */
 export default function Home() {
-  const [step, setStep] = useState<<Step>('idle');
+  const [step, setStep] = useState<Step>('idle');
 
   return (
     <div style={{ minHeight: '100vh', background: c.bg, color: c.ink, fontFamily: "'Space Mono', monospace" }}>
@@ -406,6 +494,8 @@ export default function Home() {
         </motion.div>
       </div>
 
+      <HatchDivider />
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 1.25rem' }}><StatusChecker /></div>
       <HatchDivider />
       <HonorariesSection />
       <HatchDivider />
