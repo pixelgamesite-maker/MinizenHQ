@@ -1,0 +1,39 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/**/*.ts",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist/public" }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/applications",
+      "dest": "/api/applications.ts"
+    },
+    {
+      "src": "/api/status",
+      "dest": "/api/status.ts"
+    },
+    {
+      "src": "/api/check-fren",
+      "dest": "/api/check-fren.ts"
+    },
+    {
+      "src": "/api/check-status",
+      "dest": "/api/check-status.ts"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/.*",
+      "dest": "/index.html"
+    }
+  ]
+}

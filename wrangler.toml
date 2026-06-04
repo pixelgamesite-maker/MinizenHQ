@@ -1,0 +1,6 @@
+name = "planetslog"
+pages_build_output_dir = "dist"
+
+[vars]
+VITE_SUPABASE_URL = "https://lbcnvlvdrjsnpvxxqzzp.supabase.co"
+VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxiY252bHZkcmpzbnB2eHhxenpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MDAzNzMsImV4cCI6MjA5Mzk3NjM3M30.fXLvbpxrX9gTDLqfuj-rHUYHc5DWVVmewVexsEkM0Xw"
