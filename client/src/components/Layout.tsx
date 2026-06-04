@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { LOGO_URL } from '../lib/assets';
 
 const c = {
   bg: '#f5f2ee', ink: '#111111', inkLight: '#444', inkFaint: '#999',
@@ -25,46 +26,17 @@ export default function Layout({ children, currentPath = '/' }: LayoutProps) {
       {/* Nav */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 40, background: c.bg, borderBottom: `2px solid ${c.ink}` }}>
         <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
-          {/* Logo */}
-          <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-            <img src="/logo.png" alt="Minizen" style={{ height: 32, width: 32, objectFit: 'contain' }}
+          {/* Logo only */}
+          <a href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+            <img src={LOGO_URL} alt="Minizen" style={{ height: 36, objectFit: 'contain' }}
               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-            <span style={{ fontFamily: "'Permanent Marker', cursive", fontSize: '1.2rem', color: c.ink, letterSpacing: '0.04em' }}>
-              MINIZEN HQ
-            </span>
           </a>
-
-          {/* Desktop nav links */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }} className="desktop-nav">
-            {NAV_LINKS.map(link => {
-              const active = currentPath === link.href;
-              return (
-                <a key={link.href} href={link.href}
-                  style={{
-                    fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: '0.68rem',
-                    letterSpacing: '0.12em', textTransform: 'uppercase', textDecoration: 'none',
-                    color: active ? c.ink : c.inkFaint,
-                    borderBottom: active ? `2px solid ${c.ink}` : '2px solid transparent',
-                    paddingBottom: 2, transition: 'color 0.15s, border-color 0.15s',
-                  }}>
-                  {link.label}
-                </a>
-              );
-            })}
-            <a href="https://x.com/minizenhq?s=21" target="_blank" rel="noopener noreferrer"
-              style={{ display: 'flex', alignItems: 'center', gap: 5, color: c.inkLight, fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textDecoration: 'none', textTransform: 'uppercase' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-              </svg>
-            </a>
-          </div>
 
           {/* Hamburger button */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', display: 'flex', flexDirection: 'column', gap: 5 }}
             aria-label="Toggle menu"
-            className="hamburger-btn"
           >
             <motion.span
               animate={{ rotate: menuOpen ? 45 : 0, y: menuOpen ? 7 : 0 }}
@@ -146,9 +118,6 @@ export default function Layout({ children, currentPath = '/' }: LayoutProps) {
       {/* Footer */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Permanent+Marker&family=Caveat:wght@400;700&display=swap');
-        .desktop-nav { display: none; }
-        @media (min-width: 640px) { .desktop-nav { display: flex; } .hamburger-btn { display: none; } }
-        @media (max-width: 639px) { .hamburger-btn { display: flex; } }
       `}</style>
 
       {children}
