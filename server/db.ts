@@ -1,6 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import * as schema from '@shared/schema';
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is not set');
+}
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+const sql = neon(process.env.DATABASE_URL);
+export const db = drizzle(sql, { schema });
