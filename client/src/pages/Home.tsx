@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { submitApplication, checkStatus, type ApplicationStatus } from '../lib/api';
+import { LOGO_URL, HERO_URL, COLLECTION_URLS, HONORARIES } from '../lib/assets';
 
 type Step = 'idle' | 'confirm' | 'form' | 'success';
 type TaskKey = 'follow' | 'retweet' | 'quote';
@@ -16,41 +17,7 @@ const TASKS = [
   },
 ];
 
-const HONORARIES = [
-  { name: 'TMA',     handle: '@tma_420',       file: 'TMA.JPG' },
-  { name: 'Brated',  handle: '@br4ted',        file: 'Brated.JPG' },
-  { name: 'SafZ',    handle: '@crypsaf',       file: 'SafZ.JPG' },
-  { name: 'Jasich',  handle: '@thejasich',     file: 'Jasich.JPG' },
-  { name: 'Kelvin',  handle: '@kelvinoyibo2',  file: 'H0ld .JPG' },
-  { name: 'Tess',    handle: '@tessonchain',   file: 'Tess.JPG' },
-  { name: 'Smart',   handle: '@xmartsol',      file: 'Smart.JPG' },
-  { name: 'Gorilla', handle: '@cryptogorilla', file: 'Gorilla.JPG' },
-  { name: 'JBond',   handle: '@jbondwagon',    file: 'JBond.JPG' },
-];
-
-const COLLECTION_PREVIEW = ['515.JPG','516.JPG','517.JPG','518.JPG','519.JPG','520.JPG','521.JPG'];
-
-const DURATION = 72 * 60 * 60;
-function getEnd() {
-  const s = sessionStorage.getItem('mz_end');
-  if (s) return parseInt(s);
-  const e = Date.now() + DURATION * 1000;
-  sessionStorage.setItem('mz_end', String(e));
-  return e;
-}
-function useCountdown() {
-  const [secs, setSecs] = useState(0);
-  useState(() => {
-    const tick = () => setSecs(Math.max(0, Math.floor((getEnd() - Date.now()) / 1000)));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  });
-  return { h: Math.floor(secs / 3600), m: Math.floor((secs % 3600) / 60), s: secs % 60 };
-}
-const pad = (n: number) => String(n).padStart(2, '0');
-
-const STATUS_MAP: Record<ApplicationStatus, { label: string; color: string }> = {
+const STATUS_MAP: Record<<ApplicationStatus, { label: string; color: string }> = {
   approved:  { label: '✓ Whitelisted',  color: '#111' },
   pending:   { label: '◌ Under Review', color: '#555' },
   rejected:  { label: '✕ Not Selected', color: '#888' },
@@ -109,76 +76,71 @@ export const SectionLabel = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
-function StatusChecker() {
-  const [wallet, setWallet] = useState('');
-  const [status, setStatus] = useState<ApplicationStatus | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState('');
+/* ── Header: logo only ─────────────────────────────────────────── */
+function Header() {
+  return (
+    <header style={{ width: '100%', padding: '1.25rem', display: 'flex', justifyContent: 'center' }}>
+      <img src={LOGO_URL} alt="Minizen HQ" style={{ height: 40, display: 'block' }} />
+    </header>
+  );
+}
 
-  const check = async () => {
-    if (!wallet.trim()) return;
-    setLoading(true); setErr(''); setStatus(null);
-    try { setStatus(await checkStatus(wallet.trim())); }
-    catch { setErr('Connection error. Try again.'); }
-    finally { setLoading(false); }
-  };
+/* ── Collection: single box, images drop from top & bounce ─────── */
+function CollectionSection() {
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setIdx(prev => (prev + 1) % COLLECTION_URLS.length);
+    }, 3000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <section style={{ width: '100%', maxWidth: 640, padding: '4rem 0' }}>
-      <SectionLabel>Check Status</SectionLabel>
-      <div style={{ display: 'flex', gap: 0 }}>
-        <input
-          style={{ ...fieldInput, flex: 1, borderRight: 'none' }}
-          value={wallet} onChange={e => setWallet(e.target.value)}
-          placeholder="0x… wallet address" onKeyDown={e => e.key === 'Enter' && check()}
-        />
-        <button onClick={check} disabled={loading || !wallet.trim()} style={{ ...ghostBtn, borderRadius: 0, whiteSpace: 'nowrap' }}>
-          {loading ? '···' : 'Check →'}
-        </button>
+      <SectionLabel>The Collection</SectionLabel>
+      <div style={{
+        width: '100%', maxWidth: 420, aspectRatio: '1', margin: '0 auto',
+        background: c.paper, border: `3px solid ${c.ink}`, overflow: 'hidden',
+        position: 'relative', boxShadow: `6px 6px 0 ${c.ink}`,
+      }}>
+        <AnimatePresence mode="wait">
+          <motion.img
+            key={idx}
+            src={COLLECTION_URLS[idx]}
+            alt={`Minizen #${idx + 515}`}
+            initial={{ y: -500, opacity: 0, rotate: -8, scale: 0.9 }}
+            animate={{
+              y: 0, opacity: 1, rotate: 0, scale: 1,
+              transition: {
+                type: 'spring',
+                stiffness: 120,
+                damping: 10,
+                mass: 1.5,
+              }
+            }}
+            exit={{ y: 200, opacity: 0, transition: { duration: 0.25 } }}
+            style={{
+              width: '100%', height: '100%', objectFit: 'cover',
+              display: 'block', position: 'absolute', inset: 0,
+            }}
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        </AnimatePresence>
       </div>
-      <AnimatePresence>
-        {status && (
-          <motion.p initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-            style={{ marginTop: 10, fontFamily: "'Space Mono', monospace", fontSize: '0.78rem', fontWeight: 700, color: STATUS_MAP[status].color, letterSpacing: '0.06em' }}>
-            {STATUS_MAP[status].label}
-          </motion.p>
-        )}
-        {err && (
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ marginTop: 8, fontFamily: "'Space Mono', monospace", fontSize: '0.72rem', color: '#c00' }}>
-            {err}
-          </motion.p>
-        )}
-      </AnimatePresence>
+      <p style={{
+        marginTop: '1.25rem', textAlign: 'center',
+        fontFamily: "'Space Mono', monospace", fontSize: '0.6rem',
+        color: c.inkFaint, letterSpacing: '0.1em',
+      }}>
+        10,000 SUPPLY · MORE REVEALED SOON
+      </p>
     </section>
   );
 }
 
-function CountdownSection() {
-  const { h, m, s } = useCountdown();
-  const units = [{ val: pad(h), label: 'HRS' }, { val: pad(m), label: 'MIN' }, { val: pad(s), label: 'SEC' }];
-  return (
-    <section style={{ width: '100%', maxWidth: 640, padding: '4rem 0' }}>
-      <SectionLabel>Allowlist Closes In</SectionLabel>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
-        {units.map(({ val, label }, i) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
-            <div style={{ textAlign: 'center' }}>
-              <motion.span key={val} initial={{ y: -4, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.12 }}
-                style={{ display: 'block', fontFamily: "'Bebas Neue', cursive", fontSize: 'clamp(3.5rem, 14vw, 5.5rem)', lineHeight: 1, color: c.ink, letterSpacing: '0.02em' }}>
-                {val}
-              </motion.span>
-              <span style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.5rem', letterSpacing: '0.2em', color: c.inkFaint }}>{label}</span>
-            </div>
-            {i < 2 && <span style={{ fontFamily: "'Bebas Neue', cursive", fontSize: '4rem', color: c.inkHair, lineHeight: 1, paddingBottom: '0.4rem' }}>:</span>}
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function HonoraryCard({ name, handle, file, index }: { name: string; handle: string; file: string; index: number }) {
+/* ── Honoraries ──────────────────────────────────────────────────── */
+function HonoraryCard({ name, handle, url, index }: { name: string; handle: string; url: string; index: number }) {
   const [hovered, setHovered] = useState(false);
   const rotations = [-2, 1.5, -1, 2.5, -1.5, 1, -2, 1.5, -0.5];
   const rot = rotations[index % rotations.length];
@@ -195,7 +157,7 @@ function HonoraryCard({ name, handle, file, index }: { name: string; handle: str
         transition: 'box-shadow 0.15s', cursor: 'pointer', flexShrink: 0, width: 140,
       }}>
       <div style={{ width: '100%', aspectRatio: '1', overflow: 'hidden', background: c.paper, marginBottom: 10 }}>
-        <img src={`/one/${file}`} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'contrast(1.05)' }}
+        <img src={url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'contrast(1.05)' }}
           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       </div>
       <p style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.62rem', fontWeight: 700, color: c.ink, margin: 0, letterSpacing: '0.04em' }}>{name}</p>
@@ -229,34 +191,7 @@ function HonorariesSection() {
   );
 }
 
-function CollectionSection() {
-  return (
-    <section style={{ width: '100%', maxWidth: 640, padding: '4rem 0' }}>
-      <SectionLabel>The Collection</SectionLabel>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 3 }}>
-        {COLLECTION_PREVIEW.map((file, i) => (
-          <motion.div key={file} initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
-            viewport={{ once: true, margin: '-20px' }} transition={{ delay: i * 0.05 }}
-            whileHover={{ scale: 1.02 }}
-            style={{ aspectRatio: '1', background: c.paper, border: `2px solid ${c.inkHair}`, overflow: 'hidden', cursor: 'pointer' }}>
-            <img src={`/${file}`} alt={`Minizen #${file.replace('.JPG', '')}`}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'contrast(1.08)' }}
-              onError={e => { const el = e.target as HTMLImageElement; el.style.display = 'none'; el.parentElement!.style.background = c.paperDark; }} />
-          </motion.div>
-        ))}
-        {Array.from({ length: 2 }).map((_, i) => (
-          <div key={`tease-${i}`} style={{ aspectRatio: '1', background: c.ink, border: `2px solid ${c.ink}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: "'Bebas Neue', cursive", fontSize: '2.5rem', color: c.white, opacity: 0.15 }}>?</span>
-          </div>
-        ))}
-      </div>
-      <p style={{ marginTop: '1rem', fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', color: c.inkFaint, letterSpacing: '0.1em' }}>
-        10,000 SUPPLY · MORE REVEALED SOON
-      </p>
-    </section>
-  );
-}
-
+/* ── Modals ────────────────────────────────────────────────────── */
 function ConfirmModal({ onYes, onNo }: { onYes: () => void; onNo: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -285,9 +220,9 @@ function ConfirmModal({ onYes, onNo }: { onYes: () => void; onNo: () => void }) 
 function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [wallet, setWallet] = useState('');
   const [xLink, setXLink] = useState('');
-  const [done, setDone] = useState<Set<TaskKey>>(new Set());
-  const [inputs, setInputs] = useState<Partial<Record<TaskKey, string>>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [done, setDone] = useState<<Set<TaskKey>>(new Set());
+  const [inputs, setInputs] = useState<<Partial<<Record<TaskKey, string>>>({});
+  const [errors, setErrors] = useState<<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   const openTask = (task: typeof TASKS[0]) => {
@@ -410,8 +345,9 @@ function SuccessModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+/* ── Main Page ─────────────────────────────────────────────────── */
 export default function Home() {
-  const [step, setStep] = useState<Step>('idle');
+  const [step, setStep] = useState<<Step>('idle');
 
   return (
     <div style={{ minHeight: '100vh', background: c.bg, color: c.ink, fontFamily: "'Space Mono', monospace" }}>
@@ -427,10 +363,12 @@ export default function Home() {
         ::-webkit-scrollbar-thumb { background: ${c.ink}; }
       `}</style>
 
+      <Header />
+
       {/* Hero */}
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 1.25rem' }}>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}
-          style={{ padding: '5rem 0 3rem', position: 'relative' }}>
+          style={{ padding: '3rem 0 3rem', position: 'relative' }}>
           <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}
             style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1.5rem' }}>
             <div style={{ width: 8, height: 8, background: c.ink, borderRadius: '50%' }} />
@@ -461,17 +399,13 @@ export default function Home() {
 
             <motion.div initial={{ opacity: 0, rotate: 3 }} animate={{ opacity: 1, rotate: 2 }} transition={{ delay: 0.2, duration: 0.5 }}
               style={{ flex: '0 0 auto', width: 'clamp(160px, 30vw, 240px)', background: c.white, border: `3px solid ${c.ink}`, padding: 10, boxShadow: `6px 6px 0 ${c.ink}`, alignSelf: 'flex-end' }}>
-              <img src="/hero.png" alt="Minizen" style={{ width: '100%', display: 'block', filter: 'contrast(1.05)' }}
-                onError={e => { (e.target as HTMLImageElement).src = '/517.JPG'; }} />
+              <img src={HERO_URL} alt="Minizen" style={{ width: '100%', display: 'block', filter: 'contrast(1.05)' }}
+                onError={e => { (e.target as HTMLImageElement).src = COLLECTION_URLS[2]; }} />
             </motion.div>
           </div>
         </motion.div>
       </div>
 
-      <HatchDivider />
-      <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 1.25rem' }}><StatusChecker /></div>
-      <HatchDivider />
-      <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 1.25rem' }}><CountdownSection /></div>
       <HatchDivider />
       <HonorariesSection />
       <HatchDivider />
