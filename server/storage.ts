@@ -1,47 +1,27 @@
-import { supabase } from "./db";
-
-export interface InsertApplication {
-  quoteTweet: string;
-  xUsername: string;
-  evmAddress: string;
-  favoriteSlog?: string;
-}
-
-export interface Application {
-  id: number;
-  quoteTweet: string;
-  xUsername: string;
-  evmAddress: string;
-  favoriteSlog: string;
-  createdAt: string;
-}
+import { eq } from 'drizzle-orm';
+import { db } from './db';
+import { applications } from '@shared/schema';
+import type { Application, InsertApplication } from '@shared/schema';
 
 export class DatabaseStorage {
   async createApplication(insertApp: InsertApplication): Promise<Application> {
-    const { data, error } = await supabase
-      .from("applications")
-      .insert({
-        quote_tweet: insertApp.quoteTweet,
-        x_username: insertApp.xUsername,
-        evm_address: insertApp.evmAddress,
-        favorite_slog: insertApp.favoriteSlog || "Season 1",
-      })
-      .select()
-      .single();
+    const [result] = await db
+      .insert(applications)
+      .values(insertApp)
+      .returning();
 
-    if (error) throw new Error(error.message);
-    return data as Application;
+    if (!result) throw new Error('Failed to insert application');
+    return result;
   }
 
   async getApplicationByAddress(address: string): Promise<Application | null> {
-    const { data, error } = await supabase
-      .from("applications")
-      .select("*")
-      .eq("evm_address", address)
-      .single();
+    const result = await db
+      .select()
+      .from(applications)
+      .where(eq(applications.evmAddress, address))
+      .limit(1);
 
-    if (error || !data) return null;
-    return data as Application;
+    return result[0] ?? null;
   }
 }
 
