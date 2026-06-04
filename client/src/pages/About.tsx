@@ -1,12 +1,11 @@
 import { motion } from 'framer-motion';
 import { NoiseOverlay, HatchDivider, SectionLabel } from './Home';
+import { COLLECTION_URLS, LOGO_URL } from '../lib/assets';
 
 const c = {
   bg: '#f5f2ee', ink: '#111111', inkLight: '#444', inkFaint: '#999',
   inkHair: '#ccc', white: '#ffffff', paper: '#ede9e3', paperDark: '#ddd8d0',
 };
-
-const COLLECTION_SAMPLES = ['515.JPG', '516.JPG', '517.JPG', '518.JPG', '519.JPG', '520.JPG'];
 
 const TRAITS = [
   { label: 'Supply', value: '10,000' },
@@ -31,11 +30,16 @@ export default function About() {
         ::-webkit-scrollbar-thumb { background: ${c.ink}; }
       `}</style>
 
+      {/* Header: logo only */}
+      <header style={{ width: '100%', padding: '1.25rem', display: 'flex', justifyContent: 'center' }}>
+        <img src={LOGO_URL} alt="Minizen HQ" style={{ height: 40, display: 'block' }} />
+      </header>
+
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 1.25rem' }}>
 
         {/* Hero */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-          style={{ padding: '5rem 0 3rem' }}>
+          style={{ padding: '3rem 0 3rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1.5rem' }}>
             <div style={{ width: 8, height: 8, background: c.ink, borderRadius: '50%' }} />
             <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', color: c.inkFaint }}>
@@ -59,8 +63,8 @@ export default function About() {
 
             {/* Stacked polaroids */}
             <div style={{ flex: '0 0 auto', position: 'relative', width: 180, height: 200 }}>
-              {COLLECTION_SAMPLES.slice(0, 3).map((file, i) => (
-                <motion.div key={file}
+              {COLLECTION_URLS.slice(0, 3).map((url, i) => (
+                <motion.div key={url}
                   initial={{ opacity: 0, rotate: (i - 1) * 5 }}
                   animate={{ opacity: 1, rotate: (i - 1) * 4 }}
                   transition={{ delay: 0.15 + i * 0.1, duration: 0.4 }}
@@ -70,7 +74,7 @@ export default function About() {
                     padding: 8, boxShadow: `3px 3px 0 ${c.ink}`,
                     width: 150, zIndex: 3 - i,
                   }}>
-                  <img src={`/${file}`} alt={`Minizen`}
+                  <img src={url} alt={`Minizen`}
                     style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block', filter: 'contrast(1.06)' }}
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 </motion.div>
@@ -107,13 +111,13 @@ export default function About() {
         <motion.section initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} style={{ padding: '4rem 0' }}>
           <SectionLabel>The Art</SectionLabel>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 3, marginBottom: '1.5rem' }}>
-            {COLLECTION_SAMPLES.map((file, i) => (
-              <motion.div key={file}
+            {COLLECTION_URLS.map((url, i) => (
+              <motion.div key={url}
                 initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
                 viewport={{ once: true }} transition={{ delay: i * 0.06 }}
                 whileHover={{ scale: 1.03, zIndex: 2 }}
                 style={{ aspectRatio: '1', background: c.paper, border: `2px solid ${c.inkHair}`, overflow: 'hidden', cursor: 'pointer', position: 'relative' }}>
-                <img src={`/${file}`} alt={`Minizen preview`}
+                <img src={url} alt={`Minizen preview`}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: 'contrast(1.08)' }}
                   onError={e => { const el = e.target as HTMLImageElement; el.style.display = 'none'; el.parentElement!.style.background = c.paperDark; }} />
               </motion.div>
