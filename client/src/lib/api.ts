@@ -11,16 +11,21 @@ export async function submitApplication(data: {
   evmAddress: string;
   xUsername: string;
   quoteTweet: string;
-}): Promise<void> {
-  const { error } = await supabase
+  referredBy?: string; // UUID of the referrer's row
+}): Promise<{ id: string }> {
+  const { data: row, error } = await supabase
     .from('minizen')
     .insert({
       evm_address: data.evmAddress,
       x_username: data.xUsername,
       quote_tweet: data.quoteTweet,
-    });
+      ...(data.referredBy ? { referred_by: data.referredBy } : {}),
+    })
+    .select('id')
+    .single();
 
   if (error) throw new Error(error.message);
+  return { id: row.id };
 }
 
 export async function checkStatus(address: string): Promise<ApplicationStatus> {
