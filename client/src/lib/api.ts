@@ -1,3 +1,10 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY,
+);
+
 export type ApplicationStatus = 'approved' | 'pending' | 'rejected' | 'not_found';
 
 export async function submitApplication(data: {
@@ -5,25 +12,26 @@ export async function submitApplication(data: {
   xUsername: string;
   quoteTweet: string;
 }): Promise<void> {
-  const res = await fetch('/api/applications', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
+  const { error } = await supabase
+    .from('minizen')
+    .insert({
+      evm_address: data.evmAddress,
+      x_username: data.xUsername,
+      quote_tweet: data.quoteTweet,
+    });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || 'Submission failed');
-  }
+  if (error) throw new Error(error.message);
 }
 
 export async function checkStatus(address: string): Promise<ApplicationStatus> {
-  const res = await fetch(`/api/status/${encodeURIComponent(address)}`);
+  const { data, error } = await supabase
+    .from('minizen')
+    .select('status')
+    .eq('evm_address', address.toLowerCase())
+    .maybeSingle();
 
-  if (res.status === 404) return 'not_found';
+  if (error) throw new Error(error.message);
+  if (!data) return 'not_found';
 
-  if (!res.ok) throw new Error('Status check failed');
-
-  const data = await res.json();
-  return data.status ?? 'not_found';
+  return (data.status as ApplicationStatus) ?? 'not_found';
 }
