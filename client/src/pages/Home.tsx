@@ -13,6 +13,11 @@ function saveState(data: object) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* noop */ }
 }
 
+// Read ?ref= from URL once on load
+function getRefParam(): string | null {
+  try { return new URLSearchParams(window.location.search).get('ref'); } catch { return null; }
+}
+
 type Step = 'idle' | 'confirm' | 'form' | 'success';
 type TaskKey = 'follow' | 'retweet' | 'quote';
 
@@ -499,9 +504,10 @@ function ConfirmModal({ onYes, onNo }: { onYes: () => void; onNo: () => void }) 
   );
 }
 
-function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (referralId: string) => void }) {
   const persisted = loadState();
   const isSubmitted = persisted?.submitted === true;
+  const referredBy = getRefParam(); // silently captured from URL
 
   const [wallet, setWallet] = useState<string>(persisted?.wallet || '');
   const [xHandle, setXHandle] = useState<string>(persisted?.xHandle || '');
@@ -537,9 +543,14 @@ function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
     if (Object.keys(e).length) return;
     setSubmitting(true);
     try {
-      await submitApplication({ evmAddress: wallet.trim(), xUsername: xHandle.trim(), quoteTweet: inputs.quote?.trim() || xHandle.trim() });
-      saveState({ wallet, xHandle, done: Array.from(done), inputs, submitted: true });
-      onSuccess();
+      const { id } = await submitApplication({
+        evmAddress: wallet.trim(),
+        xUsername: xHandle.trim(),
+        quoteTweet: inputs.quote?.trim() || xHandle.trim(),
+        ...(referredBy ? { referredBy } : {}),
+      });
+      saveState({ wallet, xHandle, done: Array.from(done), inputs, submitted: true, referralId: id });
+      onSuccess(id);
     } catch { setErrors({ submit: 'Submission failed. Try again.' }); }
     finally { setSubmitting(false); }
   };
@@ -567,11 +578,29 @@ function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', fontSize: '1.1rem', color: c.inkLight, padding: '2px 6px' }}>✕</button>
         </div>
 
-        {isSubmitted && (
-          <div style={{ border: `2px solid ${c.ink}`, background: c.paper, padding: '0.85rem 1rem', marginBottom: '1.5rem', fontFamily: "'Space Mono', monospace", fontSize: '0.7rem', color: c.ink, letterSpacing: '0.08em', textAlign: 'center' }}>
-            ✓ APPLICATION ALREADY SUBMITTED
-          </div>
-        )}
+        {isSubmitted && (() => {
+          const savedId = loadState()?.referralId || '';
+          const refLink = savedId ? `${window.location.origin}${window.location.pathname}?ref=${savedId}` : null;
+          const [copied, setCopied] = useState(false);
+          const copy = () => { if (refLink) navigator.clipboard.writeText(refLink).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); };
+          return (
+            <div style={{ border: `2px solid ${c.ink}`, background: c.paper, padding: '1rem', marginBottom: '1.5rem' }}>
+              <p style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.7rem', color: c.ink, letterSpacing: '0.08em', textAlign: 'center', marginBottom: refLink ? 10 : 0 }}>
+                ✓ APPLICATION ALREADY SUBMITTED
+              </p>
+              {refLink && (
+                <div style={{ display: 'flex', gap: 0, marginTop: 8 }}>
+                  <div style={{ flex: 1, background: c.white, border: `2px solid ${c.ink}`, borderRight: 'none', padding: '0.55rem 0.75rem', fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', color: c.inkFaint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {refLink}
+                  </div>
+                  <button onClick={copy} style={{ ...inkBtn, padding: '0.55rem 0.9rem', fontSize: '0.62rem' }}>
+                    {copied ? '✓' : 'Copy'}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <label style={lbl}>Complete tasks</label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: '1.5rem' }}>
@@ -627,22 +656,51 @@ function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
   );
 }
 
-function SuccessModal({ onClose }: { onClose: () => void }) {
+function SuccessModal({ onClose, referralId }: { onClose: () => void; referralId: string }) {
+  const [copied, setCopied] = useState(false);
+  const referralLink = `${window.location.origin}${window.location.pathname}?ref=${referralId}`;
+
+  const copy = () => {
+    navigator.clipboard.writeText(referralLink).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       style={{ position: 'fixed', inset: 0, background: 'rgba(245,242,238,0.85)', backdropFilter: 'blur(6px)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.25rem' }}>
       <motion.div initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-        style={{ background: c.white, border: `3px solid ${c.ink}`, boxShadow: `8px 8px 0 ${c.ink}`, width: '100%', maxWidth: 340, padding: '2.5rem 2rem', textAlign: 'center' }}>
+        style={{ background: c.white, border: `3px solid ${c.ink}`, boxShadow: `8px 8px 0 ${c.ink}`, width: '100%', maxWidth: 380, padding: '2.5rem 2rem', textAlign: 'center' }}>
         <motion.div animate={{ rotate: [0, -8, 8, -4, 4, 0] }} transition={{ duration: 0.5, delay: 0.2 }}
           style={{ fontSize: '3rem', marginBottom: '1.25rem', lineHeight: 1 }}>◉</motion.div>
         <h2 style={{ fontFamily: "'Permanent Marker', cursive", fontSize: '1.8rem', color: c.ink, marginBottom: '0.5rem' }}>
           You're In The Queue
         </h2>
-        <p style={{ fontFamily: "'Caveat', cursive", fontSize: '1.15rem', color: c.inkLight, lineHeight: 1.8, marginBottom: '1.75rem' }}>
+        <p style={{ fontFamily: "'Caveat', cursive", fontSize: '1.1rem', color: c.inkLight, lineHeight: 1.8, marginBottom: '1.75rem' }}>
           Application received. We review manually. Turn on notifs @minizenhq.
         </p>
-        <button onClick={onClose} style={{ ...inkBtn, width: '100%', padding: '0.9rem' }}>Close</button>
+
+        {/* Referral section */}
+        <div style={{ border: `2px solid ${c.ink}`, background: c.paper, padding: '1.25rem', marginBottom: '1.25rem', textAlign: 'left' }}>
+          <p style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c.inkLight, marginBottom: 8 }}>
+            Your Referral Link
+          </p>
+          <p style={{ fontFamily: "'Caveat', cursive", fontSize: '1rem', color: c.inkLight, lineHeight: 1.5, marginBottom: 12 }}>
+            Share this link. Every person who applies through it boosts your chances.
+          </p>
+          <div style={{ display: 'flex', gap: 0 }}>
+            <div style={{ flex: 1, background: c.white, border: `2px solid ${c.ink}`, borderRight: 'none', padding: '0.6rem 0.75rem', fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', color: c.inkFaint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {referralLink}
+            </div>
+            <button onClick={copy} style={{ ...inkBtn, padding: '0.6rem 1rem', fontSize: '0.65rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>
+              {copied ? '✓ Copied' : 'Copy'}
+            </button>
+          </div>
+        </div>
+
+        <button onClick={onClose} style={{ ...ghostBtn, width: '100%', padding: '0.9rem' }}>Close</button>
       </motion.div>
     </motion.div>
   );
@@ -651,6 +709,13 @@ function SuccessModal({ onClose }: { onClose: () => void }) {
 /* ── Main Page ─────────────────────────────────────────────────── */
 export default function Home() {
   const [step, setStep] = useState<Step>('idle');
+  const [referralId, setReferralId] = useState<string>(() => loadState()?.referralId || '');
+
+  // If already submitted in a past session, recover the referral id
+  useEffect(() => {
+    const persisted = loadState();
+    if (persisted?.referralId) setReferralId(persisted.referralId);
+  }, []);
 
   return (
     <div style={{ minHeight: '100vh', background: c.bg, color: c.ink, fontFamily: "'Space Mono', monospace" }}>
@@ -718,8 +783,8 @@ export default function Home() {
 
       <AnimatePresence>
         {step === 'confirm' && <ConfirmModal onYes={() => setStep('form')} onNo={() => setStep('idle')} />}
-        {step === 'form' && <WhitelistModal onClose={() => setStep('idle')} onSuccess={() => setStep('success')} />}
-        {step === 'success' && <SuccessModal onClose={() => setStep('idle')} />}
+        {step === 'form' && <WhitelistModal onClose={() => setStep('idle')} onSuccess={(id) => { setReferralId(id); setStep('success'); }} />}
+        {step === 'success' && <SuccessModal onClose={() => setStep('idle')} referralId={referralId} />}
       </AnimatePresence>
     </div>
   );
