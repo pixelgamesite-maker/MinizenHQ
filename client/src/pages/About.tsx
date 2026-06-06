@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { NoiseOverlay, HatchDivider, SectionLabel } from './Home';
-import { COLLECTION_URLS, LOGO_URL } from '../lib/assets';
+import { COLLECTION_URLS } from '../lib/assets';
 
 const c = {
   bg: '#f5f2ee', ink: '#111111', inkLight: '#444', inkFaint: '#999',
@@ -12,8 +12,8 @@ const TRAITS = [
   { label: 'Type', value: 'Hand-drawn' },
   { label: 'Honoraries', value: '1/1 gifted' },
   { label: 'Tools', value: 'Pen & paper' },
-  { label: 'Season', value: '01' },
-  { label: 'Status', value: 'Coming soon' },
+  { label: 'Mint Price', value: '0.001 ETH' },
+  { label: 'Chain', value: 'Ethereum' },
 ];
 
 export default function About() {
@@ -29,11 +29,6 @@ export default function About() {
         ::-webkit-scrollbar-track { background: ${c.paper}; }
         ::-webkit-scrollbar-thumb { background: ${c.ink}; }
       `}</style>
-
-      {/* Header: logo only */}
-      <header style={{ width: '100%', padding: '1.25rem', display: 'flex', justifyContent: 'center' }}>
-        <img src={LOGO_URL} alt="Minizen HQ" style={{ height: 40, display: 'block' }} />
-      </header>
 
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 1.25rem' }}>
 

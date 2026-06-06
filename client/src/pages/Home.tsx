@@ -1,7 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { submitApplication, checkStatus, type ApplicationStatus } from '../lib/api';
-import { LOGO_URL, HERO_URL, COLLECTION_URLS, HONORARIES } from '../lib/assets';
+import { HERO_URL, COLLECTION_URLS, HONORARIES } from '../lib/assets';
+
+// ── Persistence (survives refresh, prevents re-submission) ─────────
+const STORAGE_KEY = 'minizen_wl_state';
+function loadState() {
+  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return JSON.parse(raw); } catch { /* noop */ }
+  return null;
+}
+function saveState(data: object) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* noop */ }
+}
 
 type Step = 'idle' | 'confirm' | 'form' | 'success';
 type TaskKey = 'follow' | 'retweet' | 'quote';
@@ -76,16 +86,7 @@ export const SectionLabel = ({ children }: { children: React.ReactNode }) => (
   </div>
 );
 
-/* ── Header: logo only ─────────────────────────────────────────── */
-function Header() {
-  return (
-    <header style={{ width: '100%', padding: '1.25rem', display: 'flex', justifyContent: 'center' }}>
-      <img src={LOGO_URL} alt="Minizen HQ" style={{ height: 40, display: 'block' }} />
-    </header>
-  );
-}
-
-/* ── Status Checker (fixed) ────────────────────────────────────── */
+/* ── Status Checker ────────────────────────────────────────────── */
 function StatusChecker() {
   const [wallet, setWallet] = useState('');
   const [status, setStatus] = useState<ApplicationStatus | null>(null);
@@ -174,30 +175,54 @@ function StatusChecker() {
 }
 
 /* ── Draw Your PFP Canvas ────────────────────────────────────────── */
+const BASE_URL = 'https://psibadkdncspgikzzmnu.supabase.co/storage/v1/object/public/Minizen/Base.png';
+
 function DrawPFPCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [drawing, setDrawing] = useState(false);
   const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
   const [brushSize, setBrushSize] = useState(3);
   const [color, setColor] = useState('#111111');
+  const [baseLoaded, setBaseLoaded] = useState(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
+  const baseImg = useRef<HTMLImageElement | null>(null);
 
   const COLORS = ['#111111', '#555555', '#999999', '#cccccc', '#ffffff', '#c0392b', '#2980b9', '#27ae60', '#f39c12', '#8e44ad'];
+
+  // Load base image and draw it as the canvas background
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    // Fill background first
+    ctx.fillStyle = '#f5f2ee';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Load base character
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      baseImg.current = img;
+      // Draw base centered, slightly faded so users draw on top
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.85;
+      const x = (canvas.width - img.width * scale) / 2;
+      const y = (canvas.height - img.height * scale) / 2;
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+      ctx.restore();
+      setBaseLoaded(true);
+    };
+    img.onerror = () => setBaseLoaded(true); // proceed even if base fails
+    img.src = BASE_URL;
+  }, []);
 
   const getPos = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     if ('touches' in e) {
-      return {
-        x: (e.touches[0].clientX - rect.left) * scaleX,
-        y: (e.touches[0].clientY - rect.top) * scaleY,
-      };
+      return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
     }
-    return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
-    };
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
   };
 
   const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
@@ -231,8 +256,20 @@ function DrawPFPCanvas() {
     const ctx = canvas.getContext('2d'); if (!ctx) return;
     ctx.fillStyle = '#f5f2ee';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Re-draw base after clearing
+    if (baseImg.current) {
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      const img = baseImg.current;
+      const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.85;
+      const x = (canvas.width - img.width * scale) / 2;
+      const y = (canvas.height - img.height * scale) / 2;
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+      ctx.restore();
+    }
   };
 
+  // Download captures everything on canvas — base + user drawing together
   const downloadCanvas = () => {
     const canvas = canvasRef.current; if (!canvas) return;
     const link = document.createElement('a');
@@ -242,16 +279,9 @@ function DrawPFPCanvas() {
   };
 
   const postOnX = () => {
-    const text = encodeURIComponent('Drew my Minizen PFP 🖊️ @minizenhq — enter for a chance at the WL drop\n\n#Minizen #NFT');
+    const text = encodeURIComponent('Drew my Minizen PFP 🖊️ @minizenhq — entering for a chance at the WL drop\n\n#Minizen #NFT');
     window.open(`https://x.com/intent/tweet?text=${text}`, '_blank', 'noopener');
   };
-
-  useEffect(() => {
-    const canvas = canvasRef.current; if (!canvas) return;
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
-    ctx.fillStyle = '#f5f2ee';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }, []);
 
   const toolBtn = (active: boolean): React.CSSProperties => ({
     ...ghostBtn,
@@ -266,7 +296,7 @@ function DrawPFPCanvas() {
     <section style={{ width: '100%', maxWidth: 640, padding: '4rem 0', margin: '0 auto' }}>
       <SectionLabel>Draw Your PFP</SectionLabel>
       <p style={{ fontFamily: "'Caveat', cursive", fontSize: '1.1rem', color: c.inkLight, lineHeight: 1.7, marginBottom: '1.5rem' }}>
-        Draw your Minizen &amp; tag <strong>@minizenhq</strong> for a chance at the WL.
+        Draw your Minizen &amp; tag <strong>@minizenhq</strong> for a chance at the WL. The character base is your starting point — trace it, build on it, make it yours.
       </p>
 
       {/* Toolbar */}
@@ -285,7 +315,7 @@ function DrawPFPCanvas() {
             }} />
           ))}
         </div>
-        <button onClick={clearCanvas} style={{ ...ghostBtn, padding: '0.5rem 0.9rem', fontSize: '0.65rem', marginLeft: 'auto' }}>Clear</button>
+        <button onClick={clearCanvas} style={{ ...ghostBtn, padding: '0.5rem 0.9rem', fontSize: '0.65rem', marginLeft: 'auto' }}>Reset</button>
       </div>
 
       {/* Color palette */}
@@ -300,7 +330,12 @@ function DrawPFPCanvas() {
       </div>
 
       {/* Canvas */}
-      <div style={{ border: `3px solid ${c.ink}`, boxShadow: `6px 6px 0 ${c.ink}`, background: c.paper, lineHeight: 0, touchAction: 'none' }}>
+      <div style={{ border: `3px solid ${c.ink}`, boxShadow: `6px 6px 0 ${c.ink}`, background: c.paper, lineHeight: 0, touchAction: 'none', position: 'relative' }}>
+        {!baseLoaded && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Space Mono', monospace", fontSize: '0.65rem', color: c.inkFaint, letterSpacing: '0.1em' }}>
+            Loading base···
+          </div>
+        )}
         <canvas
           ref={canvasRef}
           width={620}
@@ -315,9 +350,12 @@ function DrawPFPCanvas() {
           onTouchEnd={stopDraw}
         />
       </div>
+      <p style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', color: c.inkFaint, marginTop: 6, letterSpacing: '0.08em' }}>
+        BASE INCLUDED IN DOWNLOAD · DRAW ON TOP OR TRACE IT
+      </p>
 
       {/* Action buttons */}
-      <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
         <button onClick={downloadCanvas} style={{ ...ghostBtn, flex: 1, padding: '0.85rem', fontSize: '0.72rem', textAlign: 'center' as const }}>
           ↓ Download PNG
         </button>
@@ -325,9 +363,6 @@ function DrawPFPCanvas() {
           Post on X →
         </button>
       </div>
-      <p style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', color: c.inkFaint, marginTop: 8, letterSpacing: '0.08em' }}>
-        HAND-DRAWN · TAG @MINIZENHQ · WL CHANCE
-      </p>
     </section>
   );
 }
@@ -465,23 +500,34 @@ function ConfirmModal({ onYes, onNo }: { onYes: () => void; onNo: () => void }) 
 }
 
 function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [wallet, setWallet] = useState('');
-  const [xLink, setXLink] = useState('');
-  const [done, setDone] = useState<Set<TaskKey>>(new Set());
-  const [inputs, setInputs] = useState<Partial<Record<TaskKey, string>>>({});
+  const persisted = loadState();
+  const isSubmitted = persisted?.submitted === true;
+
+  const [wallet, setWallet] = useState<string>(persisted?.wallet || '');
+  const [xHandle, setXHandle] = useState<string>(persisted?.xHandle || '');
+  const [done, setDone] = useState<Set<TaskKey>>(new Set(persisted?.done || []));
+  const [inputs, setInputs] = useState<Partial<Record<TaskKey, string>>>(persisted?.inputs || {});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    saveState({ wallet, xHandle, done: Array.from(done), inputs, submitted: isSubmitted });
+  }, [wallet, xHandle, done, inputs, isSubmitted]);
+
   const openTask = (task: typeof TASKS[0]) => {
     window.open(task.url, '_blank', 'noopener');
-    setDone(prev => new Set([...prev, task.key]));
+    setDone(prev => {
+      const next = new Set([...prev, task.key]);
+      saveState({ wallet, xHandle, done: Array.from(next), inputs, submitted: isSubmitted });
+      return next;
+    });
   };
 
   const validate = () => {
     const e: Record<string, string> = {};
     if (!wallet.trim()) e.wallet = 'Required';
     else if (!/^0x[a-fA-F0-9]{40}$/.test(wallet.trim())) e.wallet = 'Invalid EVM address (0x…)';
-    if (!xLink.trim()) e.xLink = 'Required';
+    if (!xHandle.trim()) e.xHandle = 'Required';
     if (done.has('quote') && !inputs.quote?.trim()) e.quote = 'Paste your quote tweet link';
     return e;
   };
@@ -491,7 +537,8 @@ function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
     if (Object.keys(e).length) return;
     setSubmitting(true);
     try {
-      await submitApplication({ evmAddress: wallet.trim(), xUsername: xLink.trim(), quoteTweet: inputs.quote?.trim() || xLink.trim() });
+      await submitApplication({ evmAddress: wallet.trim(), xUsername: xHandle.trim(), quoteTweet: inputs.quote?.trim() || xHandle.trim() });
+      saveState({ wallet, xHandle, done: Array.from(done), inputs, submitted: true });
       onSuccess();
     } catch { setErrors({ submit: 'Submission failed. Try again.' }); }
     finally { setSubmitting(false); }
@@ -520,6 +567,12 @@ function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace', fontSize: '1.1rem', color: c.inkLight, padding: '2px 6px' }}>✕</button>
         </div>
 
+        {isSubmitted && (
+          <div style={{ border: `2px solid ${c.ink}`, background: c.paper, padding: '0.85rem 1rem', marginBottom: '1.5rem', fontFamily: "'Space Mono', monospace", fontSize: '0.7rem', color: c.ink, letterSpacing: '0.08em', textAlign: 'center' }}>
+            ✓ APPLICATION ALREADY SUBMITTED
+          </div>
+        )}
+
         <label style={lbl}>Complete tasks</label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: '1.5rem' }}>
           {TASKS.map(task => {
@@ -535,6 +588,13 @@ function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
                     {isDone ? 'Done' : 'Go →'}
                   </button>
                 </div>
+                {/* X handle field sits directly under Follow task */}
+                {task.key === 'follow' && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={{ marginTop: 4 }}>
+                    <input style={fieldInput} value={xHandle} onChange={e => setXHandle(e.target.value)} placeholder="@handle or https://x.com/yourhandle" />
+                    {errors.xHandle && <p style={errStyle}>{errors.xHandle}</p>}
+                  </motion.div>
+                )}
                 {task.needsInput && isDone && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={{ marginTop: 4 }}>
                     <input style={fieldInput} value={inputs[task.key] || ''} onChange={e => setInputs(p => ({ ...p, [task.key]: e.target.value }))} placeholder={task.placeholder} />
@@ -552,16 +612,12 @@ function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
             <input style={fieldInput} value={wallet} onChange={e => setWallet(e.target.value)} placeholder="0x…" />
             {errors.wallet && <p style={errStyle}>{errors.wallet}</p>}
           </div>
-          <div>
-            <label style={lbl}>X Profile Link or @handle</label>
-            <input style={fieldInput} value={xLink} onChange={e => setXLink(e.target.value)} placeholder="https://x.com/yourhandle" />
-            {errors.xLink && <p style={errStyle}>{errors.xLink}</p>}
-          </div>
         </div>
 
         {errors.submit && <p style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.7rem', color: '#c00', textAlign: 'center', marginTop: '1rem' }}>{errors.submit}</p>}
-        <button onClick={submit} disabled={submitting} style={{ ...inkBtn, width: '100%', marginTop: '1.5rem', padding: '1rem', opacity: submitting ? 0.6 : 1 }}>
-          {submitting ? 'Submitting···' : 'Submit Application →'}
+        <button onClick={isSubmitted ? onClose : submit} disabled={submitting}
+          style={{ ...inkBtn, width: '100%', marginTop: '1.5rem', padding: '1rem', opacity: submitting ? 0.6 : 1, background: isSubmitted ? c.paper : c.ink, color: isSubmitted ? c.ink : c.white }}>
+          {isSubmitted ? '✓ Already Submitted' : submitting ? 'Submitting···' : 'Submit Application →'}
         </button>
         <p style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.6rem', color: c.inkFaint, textAlign: 'center', marginTop: '1rem', lineHeight: 1.6 }}>
           Quote links are manually reviewed · No bots
@@ -609,8 +665,6 @@ export default function Home() {
         ::-webkit-scrollbar-track { background: ${c.paper}; }
         ::-webkit-scrollbar-thumb { background: ${c.ink}; }
       `}</style>
-
-      <Header />
 
       {/* Hero */}
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 1.25rem' }}>
