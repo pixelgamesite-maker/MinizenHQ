@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { submitApplication, checkStatus, type ApplicationStatus } from '../lib/api';
 import { LOGO_URL, HERO_URL, COLLECTION_URLS, HONORARIES } from '../lib/assets';
@@ -169,6 +169,165 @@ function StatusChecker() {
           </motion.p>
         )}
       </AnimatePresence>
+    </section>
+  );
+}
+
+/* ── Draw Your PFP Canvas ────────────────────────────────────────── */
+function DrawPFPCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [drawing, setDrawing] = useState(false);
+  const [tool, setTool] = useState<'pen' | 'eraser'>('pen');
+  const [brushSize, setBrushSize] = useState(3);
+  const [color, setColor] = useState('#111111');
+  const lastPos = useRef<{ x: number; y: number } | null>(null);
+
+  const COLORS = ['#111111', '#555555', '#999999', '#cccccc', '#ffffff', '#c0392b', '#2980b9', '#27ae60', '#f39c12', '#8e44ad'];
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ('touches' in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const canvas = canvasRef.current; if (!canvas) return;
+    setDrawing(true);
+    lastPos.current = getPos(e, canvas);
+  };
+
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (!drawing) return;
+    const canvas = canvasRef.current; if (!canvas) return;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    const pos = getPos(e, canvas);
+    ctx.beginPath();
+    ctx.moveTo(lastPos.current!.x, lastPos.current!.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = tool === 'eraser' ? '#f5f2ee' : color;
+    ctx.lineWidth = tool === 'eraser' ? brushSize * 4 : brushSize;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+    lastPos.current = pos;
+  };
+
+  const stopDraw = () => { setDrawing(false); lastPos.current = null; };
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    ctx.fillStyle = '#f5f2ee';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const downloadCanvas = () => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = 'my-minizen-pfp.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+
+  const postOnX = () => {
+    const text = encodeURIComponent('Drew my Minizen PFP 🖊️ @minizenhq — enter for a chance at the WL drop\n\n#Minizen #NFT');
+    window.open(`https://x.com/intent/tweet?text=${text}`, '_blank', 'noopener');
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    ctx.fillStyle = '#f5f2ee';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }, []);
+
+  const toolBtn = (active: boolean): React.CSSProperties => ({
+    ...ghostBtn,
+    padding: '0.5rem 1rem',
+    fontSize: '0.65rem',
+    background: active ? c.ink : 'transparent',
+    color: active ? c.white : c.ink,
+    letterSpacing: '0.1em',
+  });
+
+  return (
+    <section style={{ width: '100%', maxWidth: 640, padding: '4rem 0', margin: '0 auto' }}>
+      <SectionLabel>Draw Your PFP</SectionLabel>
+      <p style={{ fontFamily: "'Caveat', cursive", fontSize: '1.1rem', color: c.inkLight, lineHeight: 1.7, marginBottom: '1.5rem' }}>
+        Draw your Minizen &amp; tag <strong>@minizenhq</strong> for a chance at the WL.
+      </p>
+
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+        <button onClick={() => setTool('pen')} style={toolBtn(tool === 'pen')}>✏ Pen</button>
+        <button onClick={() => setTool('eraser')} style={toolBtn(tool === 'eraser')}>◻ Eraser</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
+          {[2, 4, 8].map(s => (
+            <button key={s} onClick={() => setBrushSize(s)} style={{
+              width: s === 2 ? 20 : s === 4 ? 24 : 30,
+              height: s === 2 ? 20 : s === 4 ? 24 : 30,
+              borderRadius: '50%',
+              border: `2px solid ${c.ink}`,
+              background: brushSize === s ? c.ink : 'transparent',
+              cursor: 'pointer', padding: 0,
+            }} />
+          ))}
+        </div>
+        <button onClick={clearCanvas} style={{ ...ghostBtn, padding: '0.5rem 0.9rem', fontSize: '0.65rem', marginLeft: 'auto' }}>Clear</button>
+      </div>
+
+      {/* Color palette */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+        {COLORS.map(col => (
+          <button key={col} onClick={() => { setColor(col); setTool('pen'); }} style={{
+            width: 24, height: 24, background: col, border: `2px solid ${color === col && tool === 'pen' ? c.ink : c.inkHair}`,
+            cursor: 'pointer', padding: 0, boxShadow: color === col && tool === 'pen' ? `2px 2px 0 ${c.ink}` : 'none',
+            outline: 'none', transition: 'box-shadow 0.1s',
+          }} />
+        ))}
+      </div>
+
+      {/* Canvas */}
+      <div style={{ border: `3px solid ${c.ink}`, boxShadow: `6px 6px 0 ${c.ink}`, background: c.paper, lineHeight: 0, touchAction: 'none' }}>
+        <canvas
+          ref={canvasRef}
+          width={620}
+          height={480}
+          style={{ width: '100%', display: 'block', cursor: tool === 'eraser' ? 'cell' : 'crosshair' }}
+          onMouseDown={startDraw}
+          onMouseMove={draw}
+          onMouseUp={stopDraw}
+          onMouseLeave={stopDraw}
+          onTouchStart={startDraw}
+          onTouchMove={draw}
+          onTouchEnd={stopDraw}
+        />
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+        <button onClick={downloadCanvas} style={{ ...ghostBtn, flex: 1, padding: '0.85rem', fontSize: '0.72rem', textAlign: 'center' as const }}>
+          ↓ Download PNG
+        </button>
+        <button onClick={postOnX} style={{ ...inkBtn, flex: 2, padding: '0.85rem', fontSize: '0.72rem', textAlign: 'center' as const }}>
+          Post on X →
+        </button>
+      </div>
+      <p style={{ fontFamily: "'Space Mono', monospace", fontSize: '0.58rem', color: c.inkFaint, marginTop: 8, letterSpacing: '0.08em' }}>
+        HAND-DRAWN · TAG @MINIZENHQ · WL CHANCE
+      </p>
     </section>
   );
 }
@@ -494,6 +653,8 @@ export default function Home() {
         </motion.div>
       </div>
 
+      <HatchDivider />
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 1.25rem' }}><DrawPFPCanvas /></div>
       <HatchDivider />
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 1.25rem' }}><StatusChecker /></div>
       <HatchDivider />
