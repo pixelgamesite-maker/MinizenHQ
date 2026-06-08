@@ -12,7 +12,7 @@ const TRAITS = [
   { label: 'Type', value: 'Hand-drawn' },
   { label: 'Honoraries', value: '1/1 gifted' },
   { label: 'Tools', value: 'Pen & paper' },
-  { label: 'Mint Price', value: '0.001 ETH' },
+  { label: 'Mint Price', value: '0.0015 ETH' },
   { label: 'Chain', value: 'Ethereum' },
 ];
 
