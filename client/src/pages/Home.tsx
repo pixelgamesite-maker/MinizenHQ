@@ -504,10 +504,10 @@ function ConfirmModal({ onYes, onNo }: { onYes: () => void; onNo: () => void }) 
   );
 }
 
-function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (referralId: string) => void }) {
+function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (refSlug: string) => void }) {
   const persisted = loadState();
   const isSubmitted = persisted?.submitted === true;
-  const referredBy = getRefParam(); // silently captured from URL
+  const referredBySlug = getRefParam(); // silently captured from URL
 
   const [wallet, setWallet] = useState<string>(persisted?.wallet || '');
   const [xHandle, setXHandle] = useState<string>(persisted?.xHandle || '');
@@ -543,14 +543,14 @@ function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
     if (Object.keys(e).length) return;
     setSubmitting(true);
     try {
-      const { id } = await submitApplication({
+      const { refSlug } = await submitApplication({
         evmAddress: wallet.trim(),
         xUsername: xHandle.trim(),
         quoteTweet: inputs.quote?.trim() || xHandle.trim(),
-        ...(referredBy ? { referredBy } : {}),
+        ...(referredBySlug ? { referredBySlug } : {}),
       });
-      saveState({ wallet, xHandle, done: Array.from(done), inputs, submitted: true, referralId: id });
-      onSuccess(id);
+      saveState({ wallet, xHandle, done: Array.from(done), inputs, submitted: true, refSlug });
+      onSuccess(refSlug);
     } catch { setErrors({ submit: 'Submission failed. Try again.' }); }
     finally { setSubmitting(false); }
   };
@@ -579,8 +579,8 @@ function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
         </div>
 
         {isSubmitted && (() => {
-          const savedId = loadState()?.referralId || '';
-          const refLink = savedId ? `${window.location.origin}${window.location.pathname}?ref=${savedId}` : null;
+          const savedSlug = loadState()?.refSlug || '';
+          const refLink = savedSlug ? `${window.location.origin}${window.location.pathname}?ref=${savedSlug}` : null;
           const [copied, setCopied] = useState(false);
           const copy = () => { if (refLink) navigator.clipboard.writeText(refLink).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); };
           return (
@@ -656,9 +656,9 @@ function WhitelistModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
   );
 }
 
-function SuccessModal({ onClose, referralId }: { onClose: () => void; referralId: string }) {
+function SuccessModal({ onClose, refSlug }: { onClose: () => void; refSlug: string }) {
   const [copied, setCopied] = useState(false);
-  const referralLink = `${window.location.origin}${window.location.pathname}?ref=${referralId}`;
+  const referralLink = `${window.location.origin}${window.location.pathname}?ref=${refSlug}`;
 
   const copy = () => {
     navigator.clipboard.writeText(referralLink).then(() => {
@@ -709,12 +709,11 @@ function SuccessModal({ onClose, referralId }: { onClose: () => void; referralId
 /* ── Main Page ─────────────────────────────────────────────────── */
 export default function Home() {
   const [step, setStep] = useState<Step>('idle');
-  const [referralId, setReferralId] = useState<string>(() => loadState()?.referralId || '');
+  const [refSlug, setRefSlug] = useState<string>(() => loadState()?.refSlug || '');
 
-  // If already submitted in a past session, recover the referral id
   useEffect(() => {
     const persisted = loadState();
-    if (persisted?.referralId) setReferralId(persisted.referralId);
+    if (persisted?.refSlug) setRefSlug(persisted.refSlug);
   }, []);
 
   return (
@@ -783,8 +782,8 @@ export default function Home() {
 
       <AnimatePresence>
         {step === 'confirm' && <ConfirmModal onYes={() => setStep('form')} onNo={() => setStep('idle')} />}
-        {step === 'form' && <WhitelistModal onClose={() => setStep('idle')} onSuccess={(id) => { setReferralId(id); setStep('success'); }} />}
-        {step === 'success' && <SuccessModal onClose={() => setStep('idle')} referralId={referralId} />}
+        {step === 'form' && <WhitelistModal onClose={() => setStep('idle')} onSuccess={(slug) => { setRefSlug(slug); setStep('success'); }} />}
+        {step === 'success' && <SuccessModal onClose={() => setStep('idle')} refSlug={refSlug} />}
       </AnimatePresence>
     </div>
   );
