@@ -11,21 +11,32 @@ export async function submitApplication(data: {
   evmAddress: string;
   xUsername: string;
   quoteTweet: string;
-  referredBy?: string; // UUID of the referrer's row
-}): Promise<{ id: string }> {
+  referredBySlug?: string; // short slug from ?ref= param
+}): Promise<{ refSlug: string }> {
+  // Resolve the referrer's UUID from their slug if present
+  let referredById: string | null = null;
+  if (data.referredBySlug) {
+    const { data: referrer } = await supabase
+      .from('minizen')
+      .select('id')
+      .eq('ref_slug', data.referredBySlug)
+      .maybeSingle();
+    if (referrer) referredById = referrer.id;
+  }
+
   const { data: row, error } = await supabase
     .from('minizen')
     .insert({
       evm_address: data.evmAddress,
       x_username: data.xUsername,
       quote_tweet: data.quoteTweet,
-      ...(data.referredBy ? { referred_by: data.referredBy } : {}),
+      ...(referredById ? { referred_by: referredById } : {}),
     })
-    .select('id')
+    .select('ref_slug')
     .single();
 
   if (error) throw new Error(error.message);
-  return { id: row.id };
+  return { refSlug: row.ref_slug };
 }
 
 export async function checkStatus(address: string): Promise<ApplicationStatus> {
