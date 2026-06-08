@@ -28,7 +28,7 @@ const FAQS = [
   {
     category: 'The Mint',
     items: [
-      { q: 'Is the mint free?', a: 'The mint price is 0.001 ETH. Allowlist spots get priority access. Follow @minizenhq for exact dates and details.' },
+      { q: 'Is the mint free?', a: 'The mint price is 0.0015 ETH. Allowlist spots get priority access. Follow @minizenhq for exact dates and details.' },
       { q: 'What chain?', a: 'Ethereum. That\'s where the minis live.' },
       { q: 'When is the mint?', a: 'Soon. Stay locked. We don\'t rush things.' },
       { q: 'Will there be a public mint?', a: 'Possibly. Allowlist gets priority. Details coming.' },
