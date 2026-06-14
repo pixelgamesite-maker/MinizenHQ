@@ -21,13 +21,13 @@ function getRefParam(): string | null {
 type Step = 'idle' | 'confirm' | 'form' | 'success';
 type TaskKey = 'follow' | 'retweet' | 'quote';
 
-const MAIN_TWEET_URL = 'https://x.com/minizenhq/status/PLACEHOLDER';
+const MAIN_TWEET_URL = 'https://x.com/minizenhq';
 
 const TASKS = [
-  { key: 'follow' as TaskKey, label: 'Follow @minizenhq', url: 'https://x.com/minizenhq?s=21' },
-  { key: 'retweet' as TaskKey, label: 'Retweet the post', url: 'https://x.com/i/status/2065811955084931238' },
+  { key: 'follow' as TaskKey, label: 'Follow @minizenhq', url: 'https://x.com/minizenhq' },
+  { key: 'retweet' as TaskKey, label: 'Retweet pinned post', url: 'https://x.com/MinizenHQ' },
   {
-    key: 'quote' as TaskKey, label: 'Quote tweet the post', url: MAIN_TWEET_URL,
+    key: 'quote' as TaskKey, label: 'Quote tweet pinned post', url: 'https://x.com/MinizenHQ',
     needsInput: true, placeholder: 'Paste your quote tweet link',
   },
 ];
